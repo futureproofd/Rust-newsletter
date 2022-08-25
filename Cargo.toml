@@ -3,7 +3,7 @@ name = "rust-newsletter"
 version = "0.1.0"
 edition = "2021"
 
-# On MacOS, `brew install michaeleisel/zld/zld`
+# On MacOS: `brew install michaeleisel/zld/zld`
 [target.x86_64-apple-darwin]
 rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld"]
 [target.aarch64-apple-darwin]
