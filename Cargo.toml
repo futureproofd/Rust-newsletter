@@ -28,3 +28,8 @@ name = "rust-newsletter-bin"
 [dependencies]
 actix-web = "4.0.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+# Dev dependencies are used exclusively when running tests or examples
+# They do not get included in the final application binary!
+[dev-dependencies]
+reqwest = "0.11"
