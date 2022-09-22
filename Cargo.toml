@@ -1,13 +1,13 @@
 [package]
 name = "rust-newsletter"
 version = "0.1.0"
-edition = "2021"
+edition = "2022"
 
 # On MacOS: `brew install michaeleisel/zld/zld`
-[target.x86_64-apple-darwin]
-rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld"]
-[target.aarch64-apple-darwin]
-rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld"]
+#[target.x86_64-apple-darwin]
+#rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld"]
+#[target.aarch64-apple-darwin]
+#rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -28,6 +28,7 @@ name = "rust-newsletter-bin"
 [dependencies]
 actix-web = "4.0.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+serde = { version = "1", features = ["derive"]}
 
 # Dev dependencies are used exclusively when running tests or examples
 # They do not get included in the final application binary!
