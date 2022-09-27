@@ -25,7 +25,7 @@ DB_NAME="${POSTGRES_DB:=newsletter}"
 # In this case I'm already using 5432 locally
 DB_PORT="5433" #"${POSTGRES_PORT:=5432}"
 
-# Allow to skip Docker if a dockerized Postgres database is already running
+# Allow to skip Docker if a dockerized Postgres database is already running, i.e. SKIP_DOCKER=true ./scripts/init_db.sh
 if [[ -z "${SKIP_DOCKER}" ]]
 then
   # Launch postgres using Docker

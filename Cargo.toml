@@ -27,8 +27,10 @@ name = "rust-newsletter-bin"
 
 [dependencies]
 actix-web = "4.0.0"
+config = "0.13"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 serde = { version = "1", features = ["derive"]}
+sqlx = { version = "0.6", default-features = false, features = ["runtime-actix-rustls", "macros", "postgres", "uuid", "chrono", "migrate"] }
 
 # Dev dependencies are used exclusively when running tests or examples
 # They do not get included in the final application binary!
