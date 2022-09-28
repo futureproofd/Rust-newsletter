@@ -1,4 +1,5 @@
 use actix_web::{dev::Server, web, App, HttpServer};
+use sqlx::PgPool;
 use std::net::TcpListener;
 
 use crate::routes::{health_check, subscribe};
@@ -7,11 +8,16 @@ use crate::routes::{health_check, subscribe};
 
 // Notice the different signature!
 // We return `Server` on the happy path and we dropped the `async` keyword // We have no .await call, so it is not needed anymore.
-pub fn run(listener: TcpListener) -> Result<Server, std::io::Error> {
-    let server = HttpServer::new(|| {
+pub fn run(listener: TcpListener, db_pool: PgPool) -> Result<Server, std::io::Error> {
+    // Instead of getting a raw copy of a PgConnection, will get a pointer to one
+    let db_pool = web::Data::new(db_pool);
+    let server = HttpServer::new(move || {
         App::new()
             .route("/health_check", web::get().to(health_check))
             .route("/subscriptions", web::post().to(subscribe))
+            // Register the connection as part of the application state,
+            // and get a pointer copy and attach it to the application state
+            .app_data(db_pool.clone())
     })
     .listen(listener)?
     .run();
