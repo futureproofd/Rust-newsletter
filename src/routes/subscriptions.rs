@@ -19,6 +19,13 @@ pub struct FormData {
 /// for each argument and, if the extraction succeeds for all of
 /// them, it will then run the actual handler function.
 pub async fn subscribe(form: web::Form<FormData>, pg_pool: web::Data<PgPool>) -> HttpResponse {
+    log::info!(
+        "Adding '{}' '{}' as a new subscriber.",
+        form.email,
+        form.name
+    );
+    log::info!("Saving new subscriber details in the database");
+
     match sqlx::query!(
         r#"
     INSERT INTO subscriptions (id, email, name, subscribed_at) VALUES ($1, $2, $3, $4)
@@ -35,9 +42,12 @@ pub async fn subscribe(form: web::Form<FormData>, pg_pool: web::Data<PgPool>) ->
     .execute(pg_pool.get_ref())
     .await
     {
-        Ok(_) => HttpResponse::Ok().finish(),
+        Ok(_) => {
+            log::info!("New subscriber details have been saved");
+            HttpResponse::Ok().finish()
+        }
         Err(e) => {
-            println!("Failed to execute query: {}", e);
+            log::error!("Failed to execute query: {:?}", e);
             HttpResponse::InternalServerError().finish()
         }
     }

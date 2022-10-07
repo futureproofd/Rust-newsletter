@@ -1,5 +1,6 @@
 use std::net::TcpListener;
 
+use env_logger::Env;
 use rust_newsletter::configuration::get_configuration;
 use rust_newsletter::startup::run;
 use sqlx::PgPool;
@@ -7,6 +8,11 @@ use sqlx::PgPool;
 // run: `cargo +nightly expand --bin rust-newsletter-bin` (use nightly compiler for the 'expand' cmd only) to view macro expansion
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
+    // `init` does call `set_logger`, so this is all we need to do.
+    // We are falling back to printing all logs at info-level or above
+    // if the RUST_LOG environment variable has not been set.
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+
     // Panic if we cannot read the config
     let configuration = get_configuration().expect("Failed to read configuration.");
     // get a connection pool for multiple connections
