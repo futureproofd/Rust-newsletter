@@ -3,6 +3,8 @@ use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use tracing::Instrument;
+
 // We have to use the Deserialize macro from serde in order to extract FormData this way
 // Form::from_request tries to deserialise the body into FormData according to the rules of URL-encoding
 // leveraging serde_urlencoded and the Deserialize implementation of FormData, automatically generated for us by #[derive(serde::Deserialize)];
@@ -11,7 +13,10 @@ pub struct FormData {
     email: String,
     name: String,
 }
-
+/* Test
+curl -i -X POST -d 'email=thomas_mann@hotmail.com&name=Tom' \
+    http://127.0.0.1:8000/subscriptions
+*/
 // All arguments in the signature of a route handler must implement the FromRequest trait: actix-web will invoke from_request for each argument.
 /// Extract FormData using serde (via extractor using from_request trait method)
 /// this handler gets called only if the content type is *x-www-form-urlencoded*
@@ -19,12 +24,17 @@ pub struct FormData {
 /// for each argument and, if the extraction succeeds for all of
 /// them, it will then run the actual handler function.
 pub async fn subscribe(form: web::Form<FormData>, pg_pool: web::Data<PgPool>) -> HttpResponse {
-    log::info!(
-        "Adding '{}' '{}' as a new subscriber.",
-        form.email,
-        form.name
+    let request_id = Uuid::new_v4();
+    let request_span = tracing::info_span!(
+        "Adding a new subscriber.",
+        %request_id,
+        subscriber_email = %form.email,
+        subscriber_name = %form.name
     );
-    log::info!("Saving new subscriber details in the database");
+    let _request_span_guard = request_span.enter();
+    // We do not call `.enter` on query_span!
+    // `.instrument` takes care of it at the right moments // in the query future lifetime
+    let query_span = tracing::info_span!("Saving new subscriber details in the database");
 
     match sqlx::query!(
         r#"
@@ -40,14 +50,23 @@ pub async fn subscribe(form: web::Form<FormData>, pg_pool: web::Data<PgPool>) ->
     // sqlx has an asynchronous interface, but it does not allow you to run multiple queries concurrently over the same database connection.
     // Requiring a mutable reference allows them to enforce this guarantee in their API.
     .execute(pg_pool.get_ref())
+    // First we attach the instrumentation, then we `.await` it
+    .instrument(query_span)
     .await
     {
         Ok(_) => {
-            log::info!("New subscriber details have been saved");
+            tracing::info!(
+                "Correlation Id: {} > New subscriber details have been saved",
+                request_id
+            );
             HttpResponse::Ok().finish()
         }
         Err(e) => {
-            log::error!("Failed to execute query: {:?}", e);
+            tracing::error!(
+                "Correlation Id: {} > Failed to execute query: {:?}",
+                request_id,
+                e
+            );
             HttpResponse::InternalServerError().finish()
         }
     }
