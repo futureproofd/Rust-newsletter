@@ -5,6 +5,8 @@ use rust_newsletter::startup::run;
 use rust_newsletter::telemetry::{get_subscriber, init_subscriber};
 use sqlx::PgPool;
 
+use secrecy::ExposeSecret;
+
 // run: `cargo +nightly expand --bin rust-newsletter-bin` (use nightly compiler for the 'expand' cmd only) to view macro expansion
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
@@ -20,7 +22,7 @@ async fn main() -> std::io::Result<()> {
     // Panic if we cannot read the config
     let configuration = get_configuration().expect("Failed to read configuration.");
     // get a connection pool for multiple connections
-    let connection = PgPool::connect(&configuration.database.connection_string())
+    let connection = PgPool::connect(&configuration.database.connection_string().expose_secret())
         .await
         .expect("Failed to connect to Postgres.");
     let address = format!("127.0.0.1:{}", configuration.application_port);
