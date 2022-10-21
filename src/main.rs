@@ -14,7 +14,7 @@ async fn main() -> std::io::Result<()> {
     // if the RUST_LOG environment variable has not been set.
     // env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let subscriber = get_subscriber("rust_newsletter".into(), "info".into());
+    let subscriber = get_subscriber("rust_newsletter".into(), "info".into(), std::io::stdout);
     init_subscriber(subscriber);
 
     // Panic if we cannot read the config
