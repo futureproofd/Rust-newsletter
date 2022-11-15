@@ -3,7 +3,7 @@ use std::net::TcpListener;
 use rust_newsletter::configuration::get_configuration;
 use rust_newsletter::startup::run;
 use rust_newsletter::telemetry::{get_subscriber, init_subscriber};
-use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
 
 use secrecy::ExposeSecret;
 

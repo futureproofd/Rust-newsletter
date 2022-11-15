@@ -59,12 +59,12 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         .try_into()
         .expect("Failed to parse APP_ENVIRONMENT");
 
+    let environment_filename = format!("{}.yaml", environment.as_str());
+
     // Init config reader
     let settings = config::Config::builder()
-        .add_source(config::File::new(
-            "configuration.yaml",
-            config::FileFormat::Yaml,
-        ))
+        .add_source(config::File::from(config_dir.join("base.yaml")))
+        .add_source(config::File::from(config_dir.join(&environment_filename)))
         .build()?;
 
     // Try to convert the configuration values it read into our Settings type

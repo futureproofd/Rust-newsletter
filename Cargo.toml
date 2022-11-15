@@ -23,7 +23,7 @@ path = "src/lib.rs"
 # have a look at the workspace feature
 [[bin]]
 path = "src/main.rs"
-name = "rust-newsletter-bin"
+name = "rust-newsletter"
 
 [dependencies]
 actix-web = "4.0.0"
