@@ -1,0 +1,2 @@
+application:
+  host: 0.0.0.0 #used for docker image networking: ENV APP_ENVIRONMENT production

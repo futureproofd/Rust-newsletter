@@ -22,9 +22,10 @@ async fn main() -> std::io::Result<()> {
     // Panic if we cannot read the config
     let configuration = get_configuration().expect("Failed to read configuration.");
     // get a connection pool for multiple connections
-    let connection =
-        PgPool::connect_lazy(&configuration.database.connection_string().expose_secret())
-            .expect("Failed to connect to Postgres.");
+    let connection = PgPoolOptions::new()
+        .acquire_timeout(std::time::Duration::from_secs(2))
+        .connect_lazy(&configuration.database.connection_string().expose_secret())
+        .expect("Failed to connect to Postgres.");
     let address = format!(
         "{}:{}",
         configuration.application.host, configuration.application.port

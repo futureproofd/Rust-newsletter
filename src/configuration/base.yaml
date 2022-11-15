@@ -1,0 +1,9 @@
+application:
+  port: 8000
+  # hierarchical -> host contained in local/production specific yaml
+database:
+  host: "localhost"
+  port: 5433 # use non-default port to avoid collision with other local projects
+  username: "postgres"
+  password: "password"
+  database_name: "newsletter"

@@ -10,6 +10,8 @@ RUN apt update && apt install lld clang -y
 COPY . .
 # use sqlx-data.json file 
 ENV SQLX_OFFLINE true
+# for networking
+ENV APP_ENVIRONMENT production
 # Let's build our binary
 # We'll use the release profile to make it fast
 RUN cargo build --release
