@@ -37,6 +37,7 @@ impl Environment {
     }
 }
 
+// https://doc.rust-lang.org/rust-by-example/conversion/try_from_try_into.html
 impl TryFrom<String> for Environment {
     type Error = String;
 
@@ -56,6 +57,7 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     // Detect running env or default to local
     let environment: Environment = std::env::var("APP_ENVIRONMENT")
         .unwrap_or_else(|_| "local".into())
+        // must implement TryFrom for Environment to use try_into
         .try_into()
         .expect("Failed to parse APP_ENVIRONMENT");
 
