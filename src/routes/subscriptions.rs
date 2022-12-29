@@ -1,8 +1,9 @@
 use actix_web::{web, HttpResponse};
-use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
+use chrono::Utc;
 
+use crate::domain::{NewSubscriber, SubscriberName, SubscriberEmail};
 // We have to use the Deserialize macro from serde in order to extract FormData this way
 // Form::from_request tries to deserialise the body into FormData according to the rules of URL-encoding
 // leveraging serde_urlencoded and the Deserialize implementation of FormData, automatically generated for us by #[derive(serde::Deserialize)];
@@ -36,7 +37,24 @@ the function declaration, while the function body focuses on the actual business
     )
 )]
 pub async fn subscribe(form: web::Form<FormData>, pg_pool: web::Data<PgPool>) -> HttpResponse {
-    match insert_subscriber(&pg_pool, &form).await
+     // `web::Form` is a wrapper around `FormData`
+    // `form.0` gives us access to the underlying `FormData`
+    let name = match SubscriberName::parse(form.0.name) {
+        Ok(name) => name,
+        Err(_) => return HttpResponse::BadRequest().finish(),
+    };
+
+    let email = match SubscriberEmail::parse(form.0.email){
+        Ok(email) => email,
+        Err(_) => return HttpResponse::BadRequest().finish(),
+    };
+    
+    let new_subscriber = NewSubscriber {
+        email,
+        name
+    };
+
+    match insert_subscriber(&pg_pool, &new_subscriber).await
     {
         Ok(_) =>  HttpResponse::Ok().finish(),
         Err(_) => HttpResponse::InternalServerError().finish()
@@ -45,16 +63,16 @@ pub async fn subscribe(form: web::Form<FormData>, pg_pool: web::Data<PgPool>) ->
 
 #[tracing::instrument(
     name = "Saving new subscriber details to the database",
-    skip(form, pool)
+    skip(new_subscriber, pool)
 )]
-pub async fn insert_subscriber(pool: &PgPool, form: &FormData) -> Result<(), sqlx::Error> {
+pub async fn insert_subscriber(pool: &PgPool, new_subscriber: &NewSubscriber) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
     INSERT INTO subscriptions (id, email, name, subscribed_at) VALUES ($1, $2, $3, $4)
     "#,
         Uuid::new_v4(),
-        form.email,
-        form.name,
+        new_subscriber.email.as_ref(),
+        new_subscriber.name.as_ref(),
         Utc::now()
     )
     // Before refactoring this, we used `get_ref` to get an immutable reference to the `pool` var
