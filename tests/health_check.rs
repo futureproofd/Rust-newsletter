@@ -5,6 +5,7 @@
 // `cargo expand --test health_check` (<- name of the test file)
 
 use rust_newsletter::configuration::{get_configuration, DatabaseSettings};
+use rust_newsletter::email_client::EmailClient;
 use rust_newsletter::telemetry::{get_subscriber, init_subscriber};
 
 use sqlx::{Connection, Executor, PgConnection, PgPool};
@@ -45,8 +46,15 @@ async fn spawn_app() -> TestApp {
     // randomize a new test database name each time, rather than rolling back a transaction for each test.
     configuration.database.database_name = Uuid::new_v4().to_string();
 
+    // build an email client using configuration
+    let sender_email = configuration
+        .email_client
+        .sender()
+        .expect("Invalid sender address");
+    let email_client = EmailClient::new(configuration.email_client.base_url, sender_email);
+
     let connection_pool = configure_database(&configuration.database).await;
-    let server = rust_newsletter::startup::run(listener, connection_pool.clone())
+    let server = rust_newsletter::startup::run(listener, connection_pool.clone(), email_client)
         .expect("Failed to bind address");
     // Launch the server as a background task
     // tokio::spawn returns a handle to the spawned future,

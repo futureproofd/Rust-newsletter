@@ -4,6 +4,16 @@ use uuid::Uuid;
 use chrono::Utc;
 
 use crate::domain::{NewSubscriber, SubscriberName, SubscriberEmail};
+
+impl TryFrom<FormData> for NewSubscriber {
+    type Error = String;
+
+    fn try_from(value: FormData) -> Result<Self, Self::Error> {
+        let name = SubscriberName::parse(value.name)?; 
+        let email = SubscriberEmail::parse(value.email)?; 
+        Ok(Self { email, name })
+    }
+}
 // We have to use the Deserialize macro from serde in order to extract FormData this way
 // Form::from_request tries to deserialise the body into FormData according to the rules of URL-encoding
 // leveraging serde_urlencoded and the Deserialize implementation of FormData, automatically generated for us by #[derive(serde::Deserialize)];
@@ -39,19 +49,9 @@ the function declaration, while the function body focuses on the actual business
 pub async fn subscribe(form: web::Form<FormData>, pg_pool: web::Data<PgPool>) -> HttpResponse {
      // `web::Form` is a wrapper around `FormData`
     // `form.0` gives us access to the underlying `FormData`
-    let name = match SubscriberName::parse(form.0.name) {
-        Ok(name) => name,
-        Err(_) => return HttpResponse::BadRequest().finish(),
-    };
-
-    let email = match SubscriberEmail::parse(form.0.email){
-        Ok(email) => email,
-        Err(_) => return HttpResponse::BadRequest().finish(),
-    };
-    
-    let new_subscriber = NewSubscriber {
-        email,
-        name
+    let new_subscriber = match form.0.try_into() {
+        Ok(subscriber) => subscriber,
+        Err(_) => return HttpResponse::BadRequest().finish()
     };
 
     match insert_subscriber(&pg_pool, &new_subscriber).await
@@ -59,6 +59,13 @@ pub async fn subscribe(form: web::Form<FormData>, pg_pool: web::Data<PgPool>) ->
         Ok(_) =>  HttpResponse::Ok().finish(),
         Err(_) => HttpResponse::InternalServerError().finish()
     }
+}
+
+pub fn parse_subscriber(form: FormData) -> Result<NewSubscriber, String> {
+    let name = SubscriberName::parse(form.name)?;
+    let email = SubscriberEmail::parse(form.email)?;
+
+    Ok(NewSubscriber {email, name})
 }
 
 #[tracing::instrument(

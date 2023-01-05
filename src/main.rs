@@ -1,6 +1,7 @@
 use std::net::TcpListener;
 
 use rust_newsletter::configuration::get_configuration;
+use rust_newsletter::email_client::EmailClient;
 use rust_newsletter::startup::run;
 use rust_newsletter::telemetry::{get_subscriber, init_subscriber};
 use sqlx::postgres::PgPoolOptions;
@@ -24,6 +25,13 @@ async fn main() -> std::io::Result<()> {
         .acquire_timeout(std::time::Duration::from_secs(2))
         .connect_lazy_with(configuration.database.with_db());
 
+    // build an email client using configuration
+    let sender_email = configuration
+        .email_client
+        .sender()
+        .expect("Invalid sender address");
+    let email_client = EmailClient::new(configuration.email_client.base_url, sender_email);
+
     let address = format!(
         "{}:{}",
         configuration.application.host, configuration.application.port
@@ -31,5 +39,5 @@ async fn main() -> std::io::Result<()> {
     // Bubble up the io::Error if we failed (?) to bind the address
     // Otherwise call .await on our Server
     let listener = TcpListener::bind(address)?;
-    run(listener, connection)?.await
+    run(listener, connection, email_client)?.await
 }

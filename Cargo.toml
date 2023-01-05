@@ -45,10 +45,15 @@ sqlx = { version = "0.6", default-features = false, features = ["runtime-actix-r
 uuid = { version = "1", features = ["v4"] }
 validator = "0.14"
 
+[dependencies.reqwest]
+version = "0.11"
+default-features = false
+# We need the `json` feature flag to serialize/deserialize JSON payloads 
+features = ["json", "rustls-tls"]
+
 # Dev dependencies are used exclusively when running tests or examples
 # They do not get included in the final application binary!
 [dev-dependencies]
-reqwest = "0.11"
 claim = "0.5"
 fake = "~2.3"
 quickcheck = "0.9.2"
