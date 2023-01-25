@@ -51,7 +51,11 @@ async fn spawn_app() -> TestApp {
         .email_client
         .sender()
         .expect("Invalid sender address");
-    let email_client = EmailClient::new(configuration.email_client.base_url, sender_email);
+    let email_client = EmailClient::new(
+        configuration.email_client.base_url,
+        configuration.email_client.authorization_token,
+        sender_email,
+    );
 
     let connection_pool = configure_database(&configuration.database).await;
     let server = rust_newsletter::startup::run(listener, connection_pool.clone(), email_client)

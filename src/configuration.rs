@@ -22,6 +22,7 @@ pub struct ApplicationSettings {
 }
 
 // all fields in a type have to be deserialisable in order for the type as a whole (Settings) to be deserialisable.
+// (see try_deserialize() under get_configuration).
 #[derive(serde::Deserialize)]
 pub struct DatabaseSettings {
     pub username: String,
@@ -38,6 +39,7 @@ pub struct DatabaseSettings {
 #[derive(serde::Deserialize)]
 pub struct EmailClientSettings {
     pub base_url: String,
+    pub authorization_token: Secret<String>,
     pub sender_email: String,
 }
 
