@@ -7,14 +7,14 @@ use sqlx::{
 
 use crate::domain::SubscriberEmail;
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
     pub email_client: EmailClientSettings,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
@@ -23,7 +23,7 @@ pub struct ApplicationSettings {
 
 // all fields in a type have to be deserialisable in order for the type as a whole (Settings) to be deserialisable.
 // (see try_deserialize() under get_configuration).
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct DatabaseSettings {
     pub username: String,
     // these could be exposed via our tracing macros so we wrap them with a Secret
@@ -36,7 +36,7 @@ pub struct DatabaseSettings {
     pub require_ssl: bool,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct EmailClientSettings {
     pub base_url: String,
     pub authorization_token: Secret<String>,
@@ -88,8 +88,7 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     let settings = config::Config::builder()
         .add_source(config::File::from(config_dir.join("base.yaml")))
         .add_source(config::File::from(config_dir.join(environment_filename)))
-        // Add in settings from environment variables (with a prefix of APP and
-        // '__' as separator)
+        // Add in settings from environment variables (with a prefix of APP and '__' as separator)
         // E.g. `APP_APPLICATION__PORT=5001 would set `Settings.application.port`
         .add_source(
             config::Environment::with_prefix("APP")
@@ -98,7 +97,7 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         )
         .build()?;
 
-    // Try to convert the configuration values it read into our Settings type
+    // Try to convert the configuration values it read into our Settings type (which will give us the Implementations for each, and their methods)
     settings.try_deserialize::<Settings>()
 }
 
@@ -135,3 +134,4 @@ impl EmailClientSettings {
         SubscriberEmail::parse(self.sender_email.clone())
     }
 }
+//7.3. SKELETONANDPRINCIPLESFORAMAINTAINABLETESTSUITE

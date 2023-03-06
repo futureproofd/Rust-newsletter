@@ -1,10 +1,7 @@
-use std::net::TcpListener;
-
 use rust_newsletter::configuration::get_configuration;
-use rust_newsletter::email_client::EmailClient;
-use rust_newsletter::startup::run;
+
+use rust_newsletter::startup::Application;
 use rust_newsletter::telemetry::{get_subscriber, init_subscriber};
-use sqlx::postgres::PgPoolOptions;
 
 // run: `cargo +nightly expand --bin rust-newsletter-bin` (use nightly compiler for the 'expand' cmd only) to view macro expansion
 #[tokio::main]
@@ -20,32 +17,7 @@ async fn main() -> std::io::Result<()> {
 
     // Panic if we cannot read the config
     let configuration = get_configuration().expect("Failed to read configuration.");
-    // get a connection pool for multiple connections
-    let connection = PgPoolOptions::new()
-        .acquire_timeout(std::time::Duration::from_secs(2))
-        .connect_lazy_with(configuration.database.with_db());
-
-    // build an email client using configuration
-    let sender_email = configuration
-        .email_client
-        .sender()
-        .expect("Invalid sender address");
-
-    let timeout = configuration.email_client.timeout();
-
-    let email_client = EmailClient::new(
-        configuration.email_client.base_url,
-        configuration.email_client.authorization_token,
-        sender_email,
-        timeout,
-    );
-
-    let address = format!(
-        "{}:{}",
-        configuration.application.host, configuration.application.port
-    );
-    // Bubble up the io::Error if we failed (?) to bind the address
-    // Otherwise call .await on our Server
-    let listener = TcpListener::bind(address)?;
-    run(listener, connection, email_client)?.await
+    let application = Application::build(configuration).await?;
+    application.run_until_stopped().await?;
+    Ok(())
 }
