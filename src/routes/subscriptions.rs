@@ -3,7 +3,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 use chrono::Utc;
 
-use crate::domain::{NewSubscriber, SubscriberName, SubscriberEmail};
+use crate::{domain::{NewSubscriber, SubscriberName, SubscriberEmail}, email_client::EmailClient};
 
 impl TryFrom<FormData> for NewSubscriber {
     type Error = String;
@@ -40,13 +40,14 @@ the function declaration, while the function body focuses on the actual business
 */
 #[tracing::instrument(
     name = "Adding a new subscriber",
-    skip(form, pg_pool),
+    skip(form, pg_pool, email_client),
     fields(
         subscriber_email = %form.email, 
         subscriber_name= %form.name
     )
 )]
-pub async fn subscribe(form: web::Form<FormData>, pg_pool: web::Data<PgPool>) -> HttpResponse {
+// Get the email client from the app context
+pub async fn subscribe(form: web::Form<FormData>, pg_pool: web::Data<PgPool>, email_client: web::Data<EmailClient>) -> HttpResponse {
      // `web::Form` is a wrapper around `FormData`
     // `form.0` gives us access to the underlying `FormData`
     let new_subscriber = match form.0.try_into() {
@@ -54,11 +55,16 @@ pub async fn subscribe(form: web::Form<FormData>, pg_pool: web::Data<PgPool>) ->
         Err(_) => return HttpResponse::BadRequest().finish()
     };
 
-    match insert_subscriber(&pg_pool, &new_subscriber).await
-    {
-        Ok(_) =>  HttpResponse::Ok().finish(),
-        Err(_) => HttpResponse::InternalServerError().finish()
+    if insert_subscriber(&pg_pool, &new_subscriber).await.is_err() {
+        return HttpResponse::InternalServerError().finish();
     }
+
+    // send an email to subscriber
+    if email_client.send_email(new_subscriber.email, "welcome title", "welcome to our newsletter", "welcome to our newsletter!").await.is_err(){
+        return HttpResponse::InternalServerError().finish();
+    }
+
+    HttpResponse::Ok().finish()
 }
 
 pub fn parse_subscriber(form: FormData) -> Result<NewSubscriber, String> {
@@ -75,12 +81,12 @@ pub fn parse_subscriber(form: FormData) -> Result<NewSubscriber, String> {
 pub async fn insert_subscriber(pool: &PgPool, new_subscriber: &NewSubscriber) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
-    INSERT INTO subscriptions (id, email, name, subscribed_at) VALUES ($1, $2, $3, $4)
+    INSERT INTO subscriptions (id, email, name, subscribed_at, status) VALUES ($1, $2, $3, $4, 'confirmed')
     "#,
         Uuid::new_v4(),
         new_subscriber.email.as_ref(),
         new_subscriber.name.as_ref(),
-        Utc::now()
+        Utc::now(),
     )
     // Before refactoring this, we used `get_ref` to get an immutable reference to the `pool` var
     // wrapped by `web::Data`.

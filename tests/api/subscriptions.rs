@@ -1,4 +1,6 @@
 use crate::helpers::spawn_app;
+use wiremock::matchers::{method, path};
+use wiremock::{Mock, ResponseTemplate};
 
 // we can still use the same test suite to check for regressions
 //in our new stack as long as spawn_app gets replaced with the appropriate trigger (e.g. a bash command to launch the app).
@@ -10,6 +12,13 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
 
     // Act
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&test_app.email_server)
+        .await;
+
     let response = test_app.post_subscriptions(body.into()).await;
 
     // Assert
@@ -31,8 +40,6 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
 async fn subscribe_returns_a_400_when_data_is_missing() {
     // Arrange
     let test_app = spawn_app().await;
-    let client = reqwest::Client::new();
-
     // table-driven test AKA parametrised test.
     let test_cases = vec![
         ("name=le%20guin", "missing the email"),
@@ -59,7 +66,6 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
 async fn subscribe_returns_a_400_when_fields_are_present_but_invalid() {
     // Arrange
     let app = spawn_app().await;
-    let client = reqwest::Client::new();
     let test_cases = vec![
         ("name=&email=ursula_le_guin%40gmail.com", "empty name"),
         ("name=Ursula&email=", "empty email"),
@@ -76,4 +82,21 @@ async fn subscribe_returns_a_400_when_fields_are_present_but_invalid() {
             description
         );
     }
+}
+
+#[tokio::test]
+async fn subscribe_sends_a_confirmation_email_for_valid_data() {
+    // Arrange
+    let app = spawn_app().await;
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
+    // Act
+    app.post_subscriptions(body.into()).await;
 }
