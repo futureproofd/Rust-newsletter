@@ -19,10 +19,34 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
         .mount(&test_app.email_server)
         .await;
 
-    let response = test_app.post_subscriptions(body.into()).await;
+    test_app.post_subscriptions(body.into()).await;
 
     // Assert
-    assert_eq!(200, response.status().as_u16());
+    // get the first intercepted request
+    // get the body of a request intercepted by wiremock::MockServer
+    //We can use its received_requests method
+    let email_request = &test_app.email_server.received_requests().await.unwrap()[0];
+
+    // parse the body as JSON, starting from raw bytes
+    let body: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
+
+    // helper function (linkify provides us with a good alternative to writing regEx)
+    let get_link = |s: &str| {
+        let links: Vec<_> = linkify::LinkFinder::new()
+            .links(s)
+            .filter(|l| *l.kind() == linkify::LinkKind::Url)
+            .collect();
+        assert_eq!(links.len(), 1);
+        links[0].as_str().to_owned()
+    };
+
+    let html_link = get_link(&body["HtmlBody"].as_str().unwrap());
+    let text_link = get_link(&body["TextBody"].as_str().unwrap());
+
+    // The two links should be identical
+    assert_eq!(html_link, text_link);
+
+    // assert_eq!(200, response.status().as_u16());
 
     // The query! macro returns an anonymous record type: a struct defi- nition is generated at
     // compile-time after having verified that the query is valid, with a member for each column
