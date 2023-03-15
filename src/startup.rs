@@ -1,4 +1,5 @@
 use crate::configuration::{DatabaseSettings, Settings};
+
 use actix_web::{dev::Server, web, App, HttpServer};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
@@ -6,13 +7,15 @@ use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
 
 use crate::email_client::EmailClient;
-use crate::routes::{health_check, subscribe};
+use crate::routes::{confirm, health_check, subscribe};
 
 // a new type to hold the newly built Actix server and it's port
 pub struct Application {
     port: u16,
     server: Server,
 }
+
+pub struct ApplicationBaseUrl(pub String);
 
 impl Application {
     // the build function is now a constructor for the Application type
@@ -44,7 +47,12 @@ impl Application {
         let listener = TcpListener::bind(address)?;
 
         let port = listener.local_addr().unwrap().port();
-        let server = run(listener, connection, email_client)?;
+        let server = run(
+            listener,
+            connection,
+            email_client,
+            configuration.application.base_url,
+        )?;
 
         // we "save" the bound port in one of Application's fields
         Ok(Self { port, server })
@@ -69,21 +77,30 @@ pub fn run(
     listener: TcpListener,
     db_pool: PgPool,
     email_client: EmailClient,
+    base_url: String,
 ) -> Result<Server, std::io::Error> {
     // Instead of getting a raw copy of a PgConnection, will get a (Arc) pointer to one
     let db_pool = web::Data::new(db_pool);
     let email_client = web::Data::new(email_client);
-
+    let base_url = web::Data::new(ApplicationBaseUrl(base_url));
+    /*
+    the factory closure is called on each worker thread independently.
+    Therefore, if you want to share a data object between different workers,
+     a shareable object needs to be created first, outside the HttpServer::new closure and cloned into it.
+     Data<T> is an example of such a sharable object.
+     */
     let server = HttpServer::new(move || {
         App::new()
             // Middlewares are added using the `wrap` method on `App`
             .wrap(TracingLogger::default())
             .route("/health_check", web::get().to(health_check))
             .route("/subscriptions", web::post().to(subscribe))
+            .route("/subscriptions/confirm", web::get().to(confirm))
             // Register the connection as part of the application state,
             // and get a pointer copy and attach it to the application state
             .app_data(db_pool.clone())
             .app_data(email_client.clone())
+            .app_data(base_url.clone())
     })
     .listen(listener)?
     .run();
