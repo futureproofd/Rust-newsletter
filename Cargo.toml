@@ -44,6 +44,8 @@ serde-aux = "3"
 sqlx = { version = "0.6", default-features = false, features = ["runtime-actix-rustls", "macros", "postgres", "uuid", "chrono", "migrate", "offline"] }
 uuid = { version = "1", features = ["v4"] }
 validator = "0.14"
+# We need the `std_rng` to get access to the PRNG we want
+rand = { version = "0.8", features=["std_rng"] }
 
 [dependencies.reqwest]
 version = "0.11"
