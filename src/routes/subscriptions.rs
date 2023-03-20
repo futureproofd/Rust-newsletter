@@ -1,5 +1,5 @@
 use actix_web::{web, HttpResponse};
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 use chrono::Utc;
 
@@ -62,14 +62,25 @@ pub async fn subscribe(form: web::Form<FormData>,
         Err(_) => return HttpResponse::BadRequest().finish()
     };
 
-    let subscriber_id = match insert_subscriber(&pg_pool, &new_subscriber).await {
+    // A mutable reference to a Transaction implements sqlx’s Executor trait therefore it can be used to run queries
+    let mut transaction = match pg_pool.begin().await {
+        Ok(transaction) => transaction,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
+
+    let subscriber_id = match insert_subscriber(&mut transaction, &new_subscriber).await {
         Ok(subscriber_id) => subscriber_id,
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
     let subscription_token = generate_subscription_token();
     
     // exit early if anything fails
-    if store_token(&pg_pool, subscriber_id, &subscription_token).await.is_err(){
+    if store_token(&mut transaction, subscriber_id, &subscription_token).await.is_err(){
+        return HttpResponse::InternalServerError().finish();
+    }
+
+    // we need to manually commit the transaction to close the connection and stop rollbacks
+    if transaction.commit().await.is_err() {
         return HttpResponse::InternalServerError().finish();
     }
 
@@ -117,9 +128,9 @@ pub fn parse_subscriber(form: FormData) -> Result<NewSubscriber, String> {
 
 #[tracing::instrument(
     name = "Saving new subscriber details to the database",
-    skip(new_subscriber, pool)
+    skip(new_subscriber, transaction)
 )]
-pub async fn insert_subscriber(pool: &PgPool, new_subscriber: &NewSubscriber) -> Result<Uuid, sqlx::Error> {
+pub async fn insert_subscriber(transaction: &mut Transaction<'_, Postgres>, new_subscriber: &NewSubscriber) -> Result<Uuid, sqlx::Error> {
     let subscriber_id = Uuid::new_v4();
     sqlx::query!(
         r#"
@@ -134,7 +145,7 @@ pub async fn insert_subscriber(pool: &PgPool, new_subscriber: &NewSubscriber) ->
     // wrapped by `web::Data`.
     // sqlx has an asynchronous interface, but it does not allow you to run multiple queries concurrently over the same database connection.
     // Requiring a mutable reference allows them to enforce this guarantee in their API.
-    .execute(pool)
+    .execute(transaction)
     .await
     .map_err(|err| {
         tracing::error!("Failed to execute query: {:?}", err);
@@ -157,9 +168,9 @@ fn generate_subscription_token() -> String {
 }
 
 #[tracing::instrument(
-name = "Store subscription token in the database", skip(subscription_token, pool))]
+name = "Store subscription token in the database", skip(subscription_token, transaction))]
 pub async fn store_token(
-    pool: &PgPool,
+    transaction: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
     subscription_token: &str,
 
@@ -170,7 +181,7 @@ pub async fn store_token(
         subscription_token,
         subscriber_id
     )
-    .execute(pool)
+    .execute(transaction)
     .await
     .map_err(|e| {
         tracing::error!("Failed to execute query: {:?}", e);
