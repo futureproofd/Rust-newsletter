@@ -128,3 +128,23 @@ async fn subscribe_sends_a_confirmation_email_for_valid_data() {
     // Act
     app.post_subscriptions(body.into()).await;
 }
+
+// use detailed error messages wtih
+// >  export RUST_LOG="sqlx=error,info"
+// >  export TEST_LOG=enabled
+// >  cargo t subscribe_fails_if_there_is_a_fatal_database_error | bunyan
+#[tokio::test]
+async fn subscribe_fails_if_there_is_a_fatal_database_error() {
+    // Arrange
+    let app = spawn_app().await;
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+    // Sabotage the database
+    sqlx::query!("ALTER TABLE subscription_tokens DROP COLUMN subscription_token;",)
+        .execute(&app.db_pool)
+        .await
+        .unwrap();
+    // Act
+    let response = app.post_subscriptions(body.into()).await;
+    // Assert
+    assert_eq!(response.status().as_u16(), 500);
+}
