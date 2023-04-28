@@ -1,6 +1,7 @@
 use actix_web::{web, HttpResponse, ResponseError};
 use actix_web::http::StatusCode;
 
+use anyhow::Context;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 use chrono::Utc;
@@ -27,8 +28,8 @@ impl TryFrom<FormData> for NewSubscriber {
 pub enum SubscribeError {
     #[error("{0}")]
     ValidationError(String),
-    #[error("{1}")]
-    UnexpectedError(#[source] Box<dyn std::error::Error>, String)
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
 }
 
 // We are still using a bespoke implementation of `Debug` // to get a nice report using the error source chain
@@ -42,7 +43,7 @@ impl ResponseError for SubscribeError {
     fn status_code(&self) -> StatusCode {
         match self {
             SubscribeError::ValidationError(_) => StatusCode::BAD_REQUEST, 
-            SubscribeError::UnexpectedError(_, _) => {
+            SubscribeError::UnexpectedError(_) => {
                 StatusCode::INTERNAL_SERVER_ERROR
             }
         }
@@ -133,31 +134,27 @@ pub async fn subscribe(
     // A mutable reference to a Transaction implements sqlx’s Executor trait therefore it can be used to run queries
     let mut transaction = pg_pool.begin()
         .await
-        .map_err(|e| SubscribeError::UnexpectedError(Box::new(e), "Failed to acquire a Postgres connection from the pool".into(),))?;
+        .context("Failed to acquire a Postgres connection from the pool")?;
 
     let subscriber_id =insert_subscriber(&mut transaction, &new_subscriber)
         .await
-        .map_err(|e| SubscribeError::UnexpectedError(Box::new(e), "Failed to insert new subscriber in the database.".into()))?;
+        .context("Failed to insert new subscriber in the database.")?;
 
     let subscription_token = generate_subscription_token();
     
     // exit early if anything fails
     store_token(&mut transaction, subscriber_id, &subscription_token)
         .await
-        .map_err(|e| SubscribeError::UnexpectedError(Box::new(e), 
-            "Failed to store the confirmation token for a new subscriber.".into()
-        ))?;
+        .context("Failed to store the confirmation token for a new subscriber.")?;
 
     // we need to manually commit the transaction to close the connection and stop rollbacks
     transaction.commit()
         .await
-        .map_err(|e| SubscribeError::UnexpectedError(Box::new(e), 
-            "Failed to commit SQL transaction to store a new subscriber.".into(),
-        ))?;
+        .context("Failed to commit SQL transaction to store a new subscriber.")?;
 
     send_confirmation_email(&email_client, new_subscriber, &base_url.0, &subscription_token)
         .await
-        .map_err(|e| SubscribeError::UnexpectedError(Box::new(e), "Failed to send a confirmation email.".into()))?;
+        .context("Failed to send a confirmation email.")?;
     
     Ok(HttpResponse::Ok().finish())
 }
@@ -217,14 +214,7 @@ pub async fn insert_subscriber(transaction: &mut Transaction<'_, Postgres>, new_
     // sqlx has an asynchronous interface, but it does not allow you to run multiple queries concurrently over the same database connection.
     // Requiring a mutable reference allows them to enforce this guarantee in their API.
     .execute(transaction)
-    .await
-    .map_err(|err| {
-        tracing::error!("Failed to execute query: {:?}", err);
-        err
-
-    // Using the `?` operator to return early
-    // if the function failed, returning a sqlx::Error // We will talk about error handling in depth later!
-    })?;
+    .await?;
     Ok(subscriber_id)
 }
 
