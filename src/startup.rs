@@ -7,7 +7,7 @@ use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
 
 use crate::email_client::EmailClient;
-use crate::routes::{confirm, health_check, subscribe};
+use crate::routes::{confirm, health_check, publish_newsletter, subscribe};
 
 // a new type to hold the newly built Actix server and it's port
 pub struct Application {
@@ -96,6 +96,7 @@ pub fn run(
             .route("/health_check", web::get().to(health_check))
             .route("/subscriptions", web::post().to(subscribe))
             .route("/subscriptions/confirm", web::get().to(confirm))
+            .route("/newsletters", web::post().to(publish_newsletter))
             // Register the connection as part of the application state,
             // and get a pointer copy and attach it to the application state
             .app_data(db_pool.clone())

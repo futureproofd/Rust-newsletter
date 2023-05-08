@@ -74,7 +74,7 @@ impl std::fmt::Display for StoreTokenError {
 }
 
 // chain errors (currently not part of the std lib)
-fn error_chain_fmt(e: &impl std::error::Error, f: &mut std::fmt::Formatter<'_>,) -> std::fmt::Result {
+pub fn error_chain_fmt(e: &impl std::error::Error, f: &mut std::fmt::Formatter<'_>,) -> std::fmt::Result {
     writeln!(f, "{}\n", e)?;
     let mut current = e.source();
     while let Some(cause) = current {
@@ -181,7 +181,7 @@ pub async fn send_confirmation_email(email_client: &EmailClient,
         );
     // send an email to subscriber
      email_client.send_email(
-        new_subscriber.email, "welcome title",
+        &new_subscriber.email, "welcome title",
         &html_body,
         &plain_body,
     ).await
