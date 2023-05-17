@@ -28,6 +28,7 @@ name = "rust-newsletter"
 [dependencies]
 actix-web = "4.0.0"
 anyhow = "1"
+base64 = "0.13"
 config = "0.13"
 chrono = "0.4.15"
 log = "0.4"
