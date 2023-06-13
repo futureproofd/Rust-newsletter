@@ -29,6 +29,8 @@ name = "rust-newsletter"
 actix-web = "4.0.0"
 urlencoding = "2"
 htmlescape = "0.3"
+hmac = { version = "0.12", features = ["std"] }
+hex = "0.4"
 anyhow = "1"
 argon2 = { version = "0.4", features = ["std"] }
 base64 = "0.13"
@@ -47,6 +49,7 @@ thiserror = "1"
 secrecy = { version = "0.8", features = ["serde"] }
 serde = { version = "1", features = ["derive"]}
 serde-aux = "3"
+sha2 = "0.10"
 sqlx = { version = "0.6", default-features = false, features = ["runtime-actix-rustls", "macros", "postgres", "uuid", "chrono", "migrate", "offline"] }
 uuid = { version = "1", features = ["v4"] }
 validator = "0.14"

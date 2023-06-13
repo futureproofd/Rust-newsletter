@@ -19,10 +19,11 @@ pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
+    pub hmac_secret: Secret<String>,
     pub base_url: String,
 }
 
-// all fields in a type have to be deserialisable in order for the type as a whole (Settings) to be deserialisable.
+// all fields in a type have to be deserializable in order for the type as a whole (Settings) to be deserializable.
 // (see try_deserialize() under get_configuration).
 #[derive(serde::Deserialize, Clone)]
 pub struct DatabaseSettings {

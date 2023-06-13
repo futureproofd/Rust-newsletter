@@ -37,6 +37,7 @@ pub(crate) async fn validate_credentials(
         expected_password_hash = stored_password_hash;
     }
 
+    // expensive tasks get their own thread
     spawn_blocking_with_tracing(move || {
         verify_password_hash(expected_password_hash, credentials.password)
     })
