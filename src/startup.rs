@@ -1,8 +1,11 @@
 use crate::configuration::{DatabaseSettings, Settings};
 
+use actix_web::cookie::Key;
 use actix_web::web::Data;
 use actix_web::{dev::Server, web, App, HttpServer};
-use secrecy::Secret;
+use actix_web_flash_messages::storage::CookieMessageStore;
+use actix_web_flash_messages::FlashMessagesFramework;
+use secrecy::{ExposeSecret, Secret};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::net::TcpListener;
@@ -94,6 +97,12 @@ pub fn run(
     let db_pool = web::Data::new(db_pool);
     let email_client = web::Data::new(email_client);
     let base_url = web::Data::new(ApplicationBaseUrl(base_url));
+
+    // enforce using signed cookies only
+    let message_store =
+        CookieMessageStore::builder(Key::from(hmac_secret.expose_secret().as_bytes())).build();
+    let message_framework = FlashMessagesFramework::builder(message_store).build();
+
     /*
     the factory closure is called on each worker thread independently.
     Therefore, if you want to share a data object between different workers,
@@ -103,6 +112,7 @@ pub fn run(
     let server = HttpServer::new(move || {
         App::new()
             // Middlewares are added using the `wrap` method on `App`
+            .wrap(message_framework.clone())
             .wrap(TracingLogger::default())
             .route("/", web::get().to(home))
             .route("/login", web::get().to(login_form))

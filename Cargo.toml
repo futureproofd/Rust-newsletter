@@ -27,6 +27,7 @@ name = "rust-newsletter"
 
 [dependencies]
 actix-web = "4.0.0"
+actix-web-flash-messages = { version = "0.4", features = ["cookies"] }
 urlencoding = "2"
 htmlescape = "0.3"
 hmac = { version = "0.12", features = ["std"] }
@@ -59,8 +60,8 @@ rand = { version = "0.8", features=["std_rng"] }
 [dependencies.reqwest]
 version = "0.11"
 default-features = false
-# We need the `json` feature flag to serialize/deserialize JSON payloads 
-features = ["json", "rustls-tls"]
+# We need the `json` feature flag to serialize/deserialize JSON payloads
+features = ["json", "rustls-tls", "cookies"]
 
 # Dev dependencies are used exclusively when running tests or examples
 # They do not get included in the final application binary!

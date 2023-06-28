@@ -14,7 +14,6 @@ use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 
 use once_cell::sync::Lazy;
-use secrecy::ExposeSecret;
 use wiremock::MockServer;
 
 // Ensure that the `tracing` stack is only initialised once using `once_cell`
@@ -37,6 +36,7 @@ pub struct TestApp {
     pub email_server: MockServer,
     pub port: u16,
     pub test_user: TestUser,
+    pub api_client: reqwest::Client,
 }
 
 pub struct TestUser {
@@ -51,14 +51,40 @@ pub struct ConfirmationLinks {
 }
 
 impl TestApp {
+    pub async fn post_login<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        self.api_client
+            .post(&format!("{}/login", &self.address))
+            // This `reqwest` form method makes sure that the body is URL-encoded
+            // and the `Content-Type` header is set accordingly.
+            //
+            .form(body)
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
+
     pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
-        reqwest::Client::new()
+        self.api_client
             .post(&format!("{}/subscriptions", &self.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(body)
             .send()
             .await
             .expect("Failed to execute request.")
+    }
+
+    pub async fn get_login_html(&self) -> String {
+        self.api_client
+            .get(&format!("{}/login", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute request.")
+            .text()
+            .await
+            .unwrap()
     }
 
     // Extract the confirmation links embedded in the request to the email API.
@@ -94,6 +120,11 @@ impl TestApp {
             .await
             .expect("Failed to execute request.")
     }
+}
+
+pub fn assert_is_redirect_to(response: &reqwest::Response, location: &str) {
+    assert_eq!(response.status().as_u16(), 303);
+    assert_eq!(response.headers().get("Location").unwrap(), location);
 }
 
 impl TestUser {
@@ -156,7 +187,15 @@ pub async fn spawn_app() -> TestApp {
     let application_port = application.port();
     let _ = tokio::spawn(application.run_until_stopped());
 
+    // create a client instance to propagate our cookies across requests.
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .cookie_store(true)
+        .build()
+        .unwrap();
+
     let test_app = TestApp {
+        api_client: client,
         address: format!("http://localhost:{}", application_port),
         db_pool: get_connection_pool(&configuration.database),
         email_server,

@@ -8,7 +8,6 @@ use actix_web::HttpResponse;
 use actix_web::ResponseError;
 use actix_web::{web, HttpRequest};
 use anyhow::Context;
-use argon2::{Algorithm, Argon2, Params, PasswordHash, PasswordVerifier, Version};
 use secrecy::{ExposeSecret, Secret};
 use sqlx::PgPool;
 use tokio::task::JoinHandle;
